@@ -31,3 +31,10 @@ Atalhos do layout ficam em `~/.config/herdr-app/keys.json`, seção `"layout:cyb
 (`cmd-p` picker, `ctrl-shift-←/→/m` rádio).
 
 Referência: `~/.config/herdr-app/AGENTS.md` (seção "The look") e `herdr.d.ts`.
+
+## Licença
+
+MIT, veja [LICENSE](LICENSE). Exceções, que mantêm as licenças próprias:
+
+- Fontes em `mods/cyber-theme-chrome/fonts/` (Chakra Petch, Rajdhani, Share Tech Mono): SIL Open Font License 1.1, textos ao lado de cada fonte.
+- `mods/cyber-theme-files/` é adaptado do mod `files` do Herdr (Apache-2.0).

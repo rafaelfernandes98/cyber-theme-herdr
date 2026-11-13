@@ -6,5 +6,6 @@
     "dev": "node tools/dev.mjs",
     "install-theme": "node tools/dev.mjs --once",
     "palettes": "node tools/palettes.mjs"
-  }
+  },
+  "license": "MIT"
 }
