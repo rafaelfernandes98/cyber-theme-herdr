@@ -1,0 +1,8 @@
+{
+  "layout:cyber-theme": {
+    "cmd-p": "mod.open:cyber-theme-picker",
+    "ctrl-shift-right": "cyber-theme-radio.next",
+    "ctrl-shift-left": "cyber-theme-radio.prev",
+    "ctrl-shift-m": "cyber-theme-radio.mute"
+  }
+}

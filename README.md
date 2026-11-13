@@ -1,6 +1,6 @@
 # cyber-theme
 
-Visual próprio para o Herdr: tema + layout + mods. Base: cópia do **Cyber-Neon**
+Visual próprio para o Herdr: tema + layout + mods. Descrição completa em [RECIPE.md](RECIPE.md). Base: cópia do **Cyber-Neon**
 (tema `Cyber-Neon`, layout `Cyber-Neon`, mods `cyberneon-*`), renomeada para `cyber-theme`.
 
 | Pasta | Conteúdo |
@@ -27,7 +27,7 @@ projeto → `~/.config/herdr-app`: edite sempre aqui. Mods apagados do projeto s
 
 Para ver: `herdr-app do layout.switch '{"name":"cyber-theme"}'`.
 
-Atalhos do layout ficam em `~/.config/herdr-app/keys.json`, seção `"layout:cyber-theme"`
+Atalhos do layout: mescle o `keys.json` deste repositório no `~/.config/herdr-app/keys.json` (seção `"layout:cyber-theme"`)
 (`cmd-p` picker, `ctrl-shift-←/→/m` rádio).
 
 Referência: `~/.config/herdr-app/AGENTS.md` (seção "The look") e `herdr.d.ts`.
