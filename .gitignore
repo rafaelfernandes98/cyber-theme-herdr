@@ -1,0 +1,6 @@
+# Tipos que o Herdr escreve em cada pasta de mod (~11 MB); ele recria ao carregar o mod.
+*.d.ts
+node_modules/
+__pycache__/
+*.pyc
+.*.dev-tmp
