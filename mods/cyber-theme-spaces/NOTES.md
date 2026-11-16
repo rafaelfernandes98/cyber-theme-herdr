@@ -152,3 +152,17 @@ Click to select, right-click menu (rename lives there), drag-to-reorder with the
 - Herdr's default sidebar nests worktree spaces under their repo; the map didn't. Tried satellites (own point + dashed tether): too busy. Now they share the repo's point, with one short `↳ M1 ●1` tag line.
 - Parent by folder name only (`…/.herdr/worktrees/<repo>/…` ↔ a space with a `<repo>` segment, closest to the root). A space opened in `<repo>/mods/x` matched first before that rule. Tags are memoized on the region's base geometry (geo is rebuilt each render with the satellites).
 - Tag rings are memoized by agent states (`rings()`), apart from label placement: a state change no longer reruns the label search.
+
+## Fix: hover card sometimes never closed
+- Reported by the person: the card opened from a yellow tag sometimes stayed up after the pointer left it.
+- Cause: `inCard` was one boolean. The card can unmount with the pointer inside it (a point under the card got
+  hover, and 300ms later the card switched to that space), so its leave never fired; `inCard` stayed true and
+  `closeSoon()` refused to close any card from then on.
+- Fix: `over`/`inCard` hold space ids; only `inCard === card` keeps a card open, and `closeCard()` clears both.
+  `openSoon()` won't swap the card while the pointer is inside it; leaving the card onto a covered point opens
+  that point's card then. Safety net: `on_mouse_down_out` on the card closes it on any press outside.
+- Not enough (the person's report, with a shot): the card still stayed up. It hangs past the sidebar over the
+  terminal, and leaving it there didn't always report a leave. Added a watchdog: while a card is open, a 125ms timer
+  reads `window.mouse_position()` and closes the card after 2 ticks outside the last known bounds of the card, its
+  point and its tag (recorded from `on_mouse_move`'s `event.bounds`, padded 2px). It stops when the card closes.
+- Not reproduced by the agent (no pointer control).

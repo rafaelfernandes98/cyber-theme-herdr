@@ -94,6 +94,7 @@ export default class Spaces extends View {
   init(_props, cx) {
     this.acx = cx; // hover-card timers need init's AsyncContext
     this.card = null; // space id whose hover card is open
+    this.boxes = {}; // space id -> { point, tag, card } window bounds, from on_mouse_move (card watchdog)
     // Keeps the map's scroll position across re-renders (hovering a point re-rendered it back to the top).
     this.mapScroll = ScrollHandle.new();
     this.size = {}; // map box size, from on_size_change
@@ -366,11 +367,13 @@ export default class Spaces extends View {
 
   // Hover: open the card after 300ms; it stays while the pointer is on the point, its tag or the card,
   // and closes 250ms after it has left both.
+  // `over` and `inCard` hold space ids, not booleans: a card can unmount with the pointer inside it (it
+  // switched to a point lying under it), so its leave never arrives. A boolean stayed true forever and no
+  // card closed again; an id only keeps the card it names open.
   hoverDistrict(id, on, cx) {
     if (on) {
       this.over = id;
-      if (this.card === id) return;
-      this.acx.timer.after(300, (cx) => { if (this.over === id && this.card !== id) { this.card = id; cx.notify(); } });
+      this.openSoon(id);
     } else {
       if (this.over === id) this.over = null;
       this.closeSoon();
@@ -378,10 +381,68 @@ export default class Spaces extends View {
     cx.notify();
   }
 
+  // Points and tags under an open card still get hover; while the pointer is inside the card they
+  // must not swap it for another space's.
+  openSoon(id) {
+    if (this.card === id) return;
+    this.acx.timer.after(300, (cx) => {
+      if (this.over === id && this.card !== id && (!this.card || this.inCard !== this.card)) {
+        this.card = id;
+        this.inCard = null;
+        if (this.boxes[id]) delete this.boxes[id].card; // the card may open elsewhere this time
+        this.watchCard(id);
+        cx.notify();
+      }
+    });
+  }
+
   closeSoon() {
     this.acx.timer.after(250, (cx) => {
-      if (this.card && this.over !== this.card && !this.inCard) { this.card = null; cx.notify(); }
+      if (this.card && this.over !== this.card && this.inCard !== this.card) this.closeCard(cx);
     });
+  }
+
+  closeCard(cx) {
+    this.card = null;
+    this.inCard = null;
+    this.over = null;
+    this.watch?.cancel();
+    this.watch = null;
+    cx.notify();
+  }
+
+  // Leave events alone weren't enough: leaving the card over the terminal (the card hangs past the sidebar)
+  // sometimes never reported it. While a card is open, poll the real pointer position against the last
+  // known bounds of the card, its point and its tag (from on_mouse_move), and close it after 250ms outside.
+  track(id, kind, e) {
+    if (!e?.bounds) return;
+    (this.boxes[id] ??= {})[kind] = e.bounds;
+  }
+
+  watchCard(id) {
+    this.watch?.cancel();
+    let out = 0;
+    this.watch = this.acx.timer.every(125, (cx) => {
+      if (this.card !== id) { this.watch?.cancel(); this.watch = null; return; }
+      let m;
+      try { m = globalThis.window.mouse_position(); } catch { return; }
+      if (!m) return;
+      const inside = Object.values(this.boxes[id] ?? {}).some((b) =>
+        m.x >= b.x - 2 && m.x <= b.x + b.width + 2 && m.y >= b.y - 2 && m.y <= b.y + b.height + 2);
+      out = inside ? 0 : out + 1;
+      if (out >= 2) this.closeCard(cx);
+    });
+  }
+
+  cardHover(id, h, cx) {
+    if (h) this.inCard = id;
+    else {
+      if (this.inCard === id) this.inCard = null;
+      // Left the card onto a point it was covering: that point's enter was held back, open it now.
+      if (this.over && this.over !== this.card) this.openSoon(this.over);
+      this.closeSoon();
+    }
+    cx.notify();
   }
 
   // A point: 7px diamond in the most urgent state's colour inside a ring split into one arc per agent.
@@ -396,6 +457,7 @@ export default class Spaces extends View {
     const corner = (x, y, b) => b(div().absolute().size(8).border_color(t.accent)).left(HIT / 2 + x).top(HIT / 2 + y);
     return div().id(`point-${s.id}`).absolute().left(p.x - HIT / 2).top(p.y - HIT / 2).size(HIT).cursor_pointer()
       .on_hover((h, cx) => this.hoverDistrict(s.id, h, cx))
+      .on_mouse_move((e) => this.track(s.id, "point", e))
       .on_click(() => run("space.select", { id: s.id }))
       .on_mouse_down("right", () => this.menu(s))
       .when(!mine.length, (el) => el.child(art(W.paint_path(RING9, Background.solid(t.muted).opacity(0.6)))))
@@ -416,6 +478,7 @@ export default class Spaces extends View {
     const at = (el) => el.absolute().top(0).left(0).size_full();
     return v_flex().id(`tag-${s.id}`).absolute().left(p.x).top(p.y).w(p.w).h(p.h).px(4).pt(2).cursor_pointer()
       .on_hover((h, cx) => this.hoverDistrict(s.id, h, cx))
+      .on_mouse_move((e) => this.track(s.id, "tag", e))
       .on_click(() => run("space.select", { id: s.id }))
       .on_mouse_down("right", () => this.menu(s))
       .child(at(W.paint_path(p.fill, blocked ? t.blocked : t.solid)))
@@ -452,7 +515,10 @@ export default class Spaces extends View {
     }
     const shown = rows.slice(0, 12);
     return v_flex().id(`card-body-${s.id}`).w(250).px(10).pt(8).pb(10).gap(2).bg(t.popover).border_1().border_color(t.accent)
-      .on_hover((h, cx) => { this.inCard = h; if (!h) this.closeSoon(); cx.notify(); })
+      .on_hover((h, cx) => this.cardHover(s.id, h, cx))
+      .on_mouse_move((e) => this.track(s.id, "card", e))
+      // Safety net if a leave is ever lost: a press anywhere outside the card closes it.
+      .on_mouse_down_out((_e, cx) => { if (this.card === s.id) this.closeCard(cx); })
       .child(div().truncate().font_family("Rajdhani").font_bold().text_size(13).text_color(t.foreground).child(s.name.toUpperCase()))
       .child(h_flex().gap(8).items_center().font_family(MONO).text_size(9).text_color(t.dim)
         .child(div().flex_none().child(`DISTRICT // ${hex3(s.id)}`))
