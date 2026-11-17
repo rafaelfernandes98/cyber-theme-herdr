@@ -514,7 +514,10 @@ export default class Spaces extends View {
       walk(a.address, 1);
     }
     const shown = rows.slice(0, 12);
-    return v_flex().id(`card-body-${s.id}`).w(250).px(10).pt(8).pb(10).gap(2).bg(t.popover).border_1().border_color(t.accent)
+    // The card opens over the space's tag (it hangs right of the point), so a click on it selects the space
+    // like the tag would; agent rows stop the click and focus their agent instead.
+    return v_flex().id(`card-body-${s.id}`).w(250).px(10).pt(8).pb(10).gap(2).bg(t.popover).border_1().border_color(t.accent).cursor_pointer()
+      .on_click(() => run("space.select", { id: s.id }))
       .on_hover((h, cx) => this.cardHover(s.id, h, cx))
       .on_mouse_move((e) => this.track(s.id, "card", e))
       // Safety net if a leave is ever lost: a press anywhere outside the card closes it.
@@ -528,7 +531,7 @@ export default class Spaces extends View {
       .when(!rows.length, (el) => el.child(div().font_family(MONO).text_size(10).text_color(t.dim).child("NO ACTIVE AGENTS")))
       .children(shown.map((r) => h_flex().id(`card-ag-${r.address}`).h(22).pl(r.depth * 12).gap(6).items_center().cursor_pointer()
         .hover((st) => st.bg(t.hover))
-        .on_click(() => run("agent.focus", { terminal: r.address }))
+        .on_click((_e, cx) => { cx.stop_propagation(); run("agent.focus", { terminal: r.address }); })
         .when(r.depth > 0, (el) => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(t.dim).child("└")))
         .when(Boolean(icon(r.program, 14, t.foreground)), (el) => el.child(icon(r.program, 14, t.foreground)))
         .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(r.status === "idle" ? t.muted : t.foreground).child(r.name))

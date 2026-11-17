@@ -166,3 +166,11 @@ Click to select, right-click menu (rename lives there), drag-to-reorder with the
   reads `window.mouse_position()` and closes the card after 2 ticks outside the last known bounds of the card, its
   point and its tag (recorded from `on_mouse_move`'s `event.bounds`, padded 2px). It stops when the card closes.
 - Not reproduced by the agent (no pointer control).
+
+## Fix: clicking the yellow tag didn't open the space
+- Reported by the person: clicking the point selects the space, clicking its yellow tag didn't.
+- Likely cause (from the code, not confirmed live): the tag already has `on_click → space.select`, but hovering it
+  opens the card 300ms later, anchored at the point's right edge, which covers tags placed right of / below the point.
+  The click then landed on the card, which had no click handler.
+- Fix: the card body selects its space on click (`cursor_pointer`); agent rows call `cx.stop_propagation()` so they
+  still only focus their agent.
